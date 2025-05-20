@@ -19,6 +19,8 @@ def index():
                 ]
             )
             summary = response.choices[0].message.content.strip()
+            except Exception as e:
+    summary = f"⚠️ Error: {e}"
     return render_template("index.html", summary=summary)
 
 if __name__ == "__main__":
