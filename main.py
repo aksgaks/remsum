@@ -8,6 +8,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 @app.route("/", methods=["GET", "POST"])
 def index():
     summary = ""
+    error = ""
     if request.method == "POST":
         note = request.form.get("note")
         if note:
@@ -26,11 +27,22 @@ def index():
                         ]
                     }
                 )
+
                 data = response.json()
-                summary = data["choices"][0]["message"]["content"].strip()
+
+                # Check for errors in the response
+                if "choices" in data:
+                    summary = data["choices"][0]["message"]["content"].strip()
+                elif "error" in data:
+                    error = f"Groq API Error: {data['error'].get('message', 'Unknown error')}"
+                else:
+                    error = "Unexpected response format."
+
             except Exception as e:
-                summary = f"❌ Error: {e}"
-    return render_template("index.html", summary=summary)
+                error = f"❌ Exception: {e}"
+
+    return render_template("index.html", summary=summary, error=error)
+
 
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0")
