@@ -13,7 +13,7 @@ def index():
             note = request.form.get("note")
             if note:
                 response = client.chat.completions.create(
-                    model="gpt-4",
+                    model="gpt-3.5-turbo",
                     messages=[
                         {"role": "system", "content": "Summarize this for a bid reminder in 2–3 short bullet points."},
                         {"role": "user", "content": note}
