@@ -1,27 +1,35 @@
 from flask import Flask, request, render_template
-from openai import OpenAI
+import requests
 import os
 
 app = Flask(__name__)
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     summary = ""
     if request.method == "POST":
-        try:
-            note = request.form.get("note")
-            if note:
-                response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "Summarize this for a bid reminder in 2–3 short bullet points."},
-                        {"role": "user", "content": note}
-                    ]
+        note = request.form.get("note")
+        if note:
+            try:
+                response = requests.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {GROQ_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "mixtral-8x7b-32768",
+                        "messages": [
+                            {"role": "system", "content": "Summarize this note in 2–3 short bullet points suitable as a reminder."},
+                            {"role": "user", "content": note}
+                        ]
+                    }
                 )
-                summary = response.choices[0].message.content.strip()
-        except Exception as e:
-            summary = f"❌ Error: {str(e)}"
+                data = response.json()
+                summary = data["choices"][0]["message"]["content"].strip()
+            except Exception as e:
+                summary = f"❌ Error: {e}"
     return render_template("index.html", summary=summary)
 
 if __name__ == "__main__":
