@@ -22,6 +22,7 @@ def index():
             except Exception as e:
     summary = f"⚠️ Error: {e}"
     return render_template("index.html", summary=summary)
-
+except Exception as err:
+    print("Flask Error:", err)
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0")
