@@ -20,7 +20,7 @@ def index():
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": "mixtral-8x7b-32768",
+                        "model": "llama3-8b-8192",
                         "messages": [
                             {"role": "system", "content": "Summarize this note in 2–3 short bullet points suitable as a reminder."},
                             {"role": "user", "content": note}
