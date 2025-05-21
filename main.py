@@ -38,7 +38,9 @@ vosk_model = Model("model")
 def transcribe_vosk(audio_file):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
         sound = AudioSegment.from_file(audio_file)
-        sound.set_frame_rate(16000).set_channels(1).export(wav_file.name, format="wav")
+sound = sound.set_frame_rate(16000).set_channels(1)
+sound.export(wav_file.name, format="wav")
+
 
     wf = wave.open(wav_file.name, "rb")
     rec = KaldiRecognizer(vosk_model, wf.getframerate())
