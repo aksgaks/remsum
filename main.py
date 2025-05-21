@@ -36,10 +36,10 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 # Load Vosk model
 vosk_model = Model("model")
 
-def transcribe_vosk(mp3_file):
+def transcribe_vosk(audio_file):
     recognizer = sr.Recognizer()
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
-        sound = AudioSegment.from_file(mp3_file, format="mp3")
+        sound = AudioSegment.from_file(audio_file)
         sound.export(wav_file.name, format="wav")
         with sr.AudioFile(wav_file.name) as source:
             audio = recognizer.record(source)
@@ -54,7 +54,7 @@ def index():
         audio = request.files.get("audio")
 
         try:
-           if audio and audio.filename.lower().endswith((".mp3", ".m4a", ".wav", ".ogg")):
+            if audio and audio.filename.lower().endswith((".mp3", ".m4a", ".wav", ".ogg")):
                 note = transcribe_vosk(audio)
 
             if note:
