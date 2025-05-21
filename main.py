@@ -54,7 +54,7 @@ def index():
         audio = request.files.get("audio")
 
         try:
-            if audio and audio.filename.endswith(".mp3"):
+           if audio and audio.filename.lower().endswith((".mp3", ".m4a", ".wav", ".ogg")):
                 note = transcribe_vosk(audio)
 
             if note:
