@@ -1,50 +1,48 @@
 
 from flask import Flask, request, render_template
-import requests, os, tempfile, zipfile, wave, json
+import os, tempfile, wave, json, datetime
 from pydub import AudioSegment
 from vosk import Model, KaldiRecognizer
+import requests, smtplib
+from email.mime.text import MIMEText
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 
-# ✅ Auto-download Vosk model if not already present
+# Auto-download Vosk model
 def setup_vosk_model():
     model_url = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
     model_zip_path = "model.zip"
     model_dir = "model"
-
     if not os.path.exists(model_dir):
-        print("🔽 Downloading Vosk model...")
+        print("Downloading Vosk model...")
         response = requests.get(model_url, stream=True)
         with open(model_zip_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
+            for chunk in response.iter_content(8192):
                 f.write(chunk)
-
-        print("📦 Unzipping model...")
+        import zipfile
         with zipfile.ZipFile(model_zip_path, "r") as zip_ref:
             zip_ref.extractall(".")
             extracted_folder = zip_ref.namelist()[0].split("/")[0]
             os.rename(extracted_folder, model_dir)
-
         os.remove(model_zip_path)
-        print("✅ Vosk model ready.")
 
-# Run model setup
 setup_vosk_model()
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max upload
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASS = os.getenv("EMAIL_PASS")
 
-# Load Vosk model
 vosk_model = Model("model")
 
 def transcribe_vosk(audio_file):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
         sound = AudioSegment.from_file(audio_file)
-        sound = sound.set_frame_rate(16000).set_channels(1)  # optimize for Vosk
+        sound = sound.set_frame_rate(16000).set_channels(1)
         sound.export(wav_file.name, format="wav")
-
     wf = wave.open(wav_file.name, "rb")
     rec = KaldiRecognizer(vosk_model, wf.getframerate())
-
     transcript = ""
     while True:
         data = wf.readframes(4000)
@@ -53,10 +51,32 @@ def transcribe_vosk(audio_file):
         if rec.AcceptWaveform(data):
             result = json.loads(rec.Result())
             transcript += result.get("text", "") + " "
-
     final_result = json.loads(rec.FinalResult())
     transcript += final_result.get("text", "")
     return transcript.strip()
+
+def send_email(to_email, content):
+    msg = MIMEText(content)
+    msg["Subject"] = "Your Reminder"
+    msg["From"] = EMAIL_USER
+    msg["To"] = to_email
+    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        server.starttls()
+        server.login(EMAIL_USER, EMAIL_PASS)
+        server.send_message(msg)
+
+def create_calendar_event(summary, dt):
+    credentials = service_account.Credentials.from_service_account_file(
+        "credentials.json", scopes=["https://www.googleapis.com/auth/calendar"]
+    )
+    service = build("calendar", "v3", credentials=credentials)
+    event = {
+        'summary': 'Reminder',
+        'description': summary,
+        'start': {'dateTime': dt.isoformat(), 'timeZone': 'Asia/Kolkata'},
+        'end': {'dateTime': (dt + datetime.timedelta(hours=1)).isoformat(), 'timeZone': 'Asia/Kolkata'},
+    }
+    service.events().insert(calendarId='primary', body=event).execute()
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -65,18 +85,18 @@ def index():
     if request.method == "POST":
         note = request.form.get("note", "")
         audio = request.files.get("audio")
+        user_email = request.form.get("email")
+        send_email_flag = request.form.get("send_email")
+        reminder_time = request.form.get("reminder_datetime")
 
         try:
             if audio and audio.filename.lower().endswith((".mp3", ".m4a", ".wav", ".ogg", ".mp4")):
                 note = transcribe_vosk(audio)
 
             if note:
-                response = requests.post(
+                res = requests.post(
                     "https://api.groq.com/openai/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {GROQ_API_KEY}",
-                        "Content-Type": "application/json"
-                    },
+                    headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
                     json={
                         "model": "llama3-8b-8192",
                         "messages": [
@@ -85,18 +105,21 @@ def index():
                         ]
                     }
                 )
-                data = response.json()
-                if "choices" in data:
-                    summary = data["choices"][0]["message"]["content"].strip()
-                elif "error" in data:
-                    error = f"Groq API Error: {data['error'].get('message', 'Unknown error')}"
-                else:
-                    error = "Unexpected response format."
+                data = res.json()
+                summary = data["choices"][0]["message"]["content"].strip()
+
+                if send_email_flag and user_email:
+                    send_email(user_email, summary)
+
+                if reminder_time:
+                    reminder_dt = datetime.datetime.fromisoformat(reminder_time)
+                    create_calendar_event(summary, reminder_dt)
+
             else:
-                error = "No valid text or voice input provided."
+                error = "No input found."
 
         except Exception as e:
-            error = f"❌ Error: {e}"
+            error = f"Error: {e}"
 
     return render_template("index.html", summary=summary, error=error)
 
