@@ -30,6 +30,7 @@ def setup_vosk_model():
 setup_vosk_model()
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max upload
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # Load Vosk model
@@ -38,9 +39,8 @@ vosk_model = Model("model")
 def transcribe_vosk(audio_file):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
         sound = AudioSegment.from_file(audio_file)
-sound = sound.set_frame_rate(16000).set_channels(1)
-sound.export(wav_file.name, format="wav")
-
+        sound = sound.set_frame_rate(16000).set_channels(1)  # optimize for Vosk
+        sound.export(wav_file.name, format="wav")
 
     wf = wave.open(wav_file.name, "rb")
     rec = KaldiRecognizer(vosk_model, wf.getframerate())
@@ -67,7 +67,7 @@ def index():
         audio = request.files.get("audio")
 
         try:
-            if audio and audio.filename.lower().endswith((".mp3", ".m4a", ".wav", ".ogg")):
+            if audio and audio.filename.lower().endswith((".mp3", ".m4a", ".wav", ".ogg", ".mp4")):
                 note = transcribe_vosk(audio)
 
             if note:
