@@ -1,26 +1,23 @@
-# ✅ main.py (Groq + Whisper + MP3 Upload)
-
 from flask import Flask, request, render_template
 import requests, os
+import speech_recognition as sr
+from pydub import AudioSegment
 
 app = Flask(__name__)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-WHISPER_API_KEY = os.getenv("WHISPER_API_KEY")  # OpenAI key for transcription
 
-def transcribe_mp3(file):
-    headers = {
-        "Authorization": f"Bearer {WHISPER_API_KEY}"
-    }
-    files = {
-        'file': (file.filename, file.stream, 'audio/mpeg'),
-        'model': (None, 'whisper-1')
-    }
-    response = requests.post(
-        "https://api.openai.com/v1/audio/transcriptions",
-        headers=headers,
-        files=files
-    )
-    return response.json().get("text", "")
+# Load Vosk model once
+from vosk import Model
+vosk_model = Model(lang="en-us")
+
+def transcribe_vosk(mp3_file):
+    recognizer = sr.Recognizer()
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
+        sound = AudioSegment.from_file(mp3_file, format="mp3")
+        sound.export(wav_file.name, format="wav")
+        with sr.AudioFile(wav_file.name) as source:
+            audio = recognizer.record(source)
+            return recognizer.recognize_vosk(audio, model=vosk_model)
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -32,7 +29,7 @@ def index():
 
         try:
             if audio and audio.filename.endswith(".mp3"):
-                note = transcribe_mp3(audio)
+                note = transcribe_vosk(audio)
 
             if note:
                 response = requests.post(
@@ -50,12 +47,9 @@ def index():
                     }
                 )
                 data = response.json()
-                if "choices" in data:
-                    summary = data["choices"][0]["message"]["content"].strip()
-                elif "error" in data:
-                    error = f"Groq API Error: {data['error'].get('message', 'Unknown error')}"
-                else:
-                    error = "Unexpected response format."
+                summary = data["choices"][0]["message"]["content"].strip()
+            else:
+                error = "No valid text or voice input provided."
 
         except Exception as e:
             error = f"❌ Error: {e}"
