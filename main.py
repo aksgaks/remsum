@@ -57,7 +57,7 @@ def transcribe_vosk(audio_file):
 
 def send_email(to_email, content):
     msg = MIMEText(content)
-    msg["Subject"] = "Your Reminder"
+    msg["Subject"] = "Your Reminder Summary"
     msg["From"] = EMAIL_USER
     msg["To"] = to_email
     with smtplib.SMTP("smtp.gmail.com", 587) as server:
@@ -82,31 +82,37 @@ def create_calendar_event(summary, dt):
 def index():
     summary = ""
     error = ""
+    transcript = ""
     if request.method == "POST":
         note = request.form.get("note", "")
         audio = request.files.get("audio")
         user_email = request.form.get("email")
         send_email_flag = request.form.get("send_email")
         reminder_time = request.form.get("reminder_datetime")
+        summarize_flag = request.form.get("summarize")
 
         try:
             if audio and audio.filename.lower().endswith((".mp3", ".m4a", ".wav", ".ogg", ".mp4")):
-                note = transcribe_vosk(audio)
+                transcript = transcribe_vosk(audio)
+                note = transcript
 
             if note:
-                res = requests.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-                    json={
-                        "model": "llama3-8b-8192",
-                        "messages": [
-                            {"role": "system", "content": "Summarize this note in 2–3 short bullet points suitable as a reminder."},
-                            {"role": "user", "content": note}
-                        ]
-                    }
-                )
-                data = res.json()
-                summary = data["choices"][0]["message"]["content"].strip()
+                if summarize_flag:
+                    res = requests.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                        json={
+                            "model": "llama3-8b-8192",
+                            "messages": [
+                                {"role": "system", "content": "Summarize this note in 2–3 short bullet points suitable as a reminder."},
+                                {"role": "user", "content": note}
+                            ]
+                        }
+                    )
+                    data = res.json()
+                    summary = data["choices"][0]["message"]["content"].strip()
+                else:
+                    summary = note  # no summarization requested
 
                 if send_email_flag and user_email:
                     send_email(user_email, summary)
@@ -116,12 +122,12 @@ def index():
                     create_calendar_event(summary, reminder_dt)
 
             else:
-                error = "No input found."
+                error = "No input provided."
 
         except Exception as e:
             error = f"Error: {e}"
 
-    return render_template("index.html", summary=summary, error=error)
+    return render_template("index.html", summary=summary, error=error, transcript=transcript)
 
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0")
