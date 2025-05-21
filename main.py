@@ -1,14 +1,39 @@
 
 from flask import Flask, request, render_template
-import requests, os, tempfile
+import requests, os, tempfile, zipfile
 import speech_recognition as sr
 from pydub import AudioSegment
 from vosk import Model
 
+# ✅ Auto-download Vosk model if not already present
+def setup_vosk_model():
+    model_url = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+    model_zip_path = "model.zip"
+    model_dir = "model"
+
+    if not os.path.exists(model_dir):
+        print("🔽 Downloading Vosk model...")
+        response = requests.get(model_url, stream=True)
+        with open(model_zip_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+        print("📦 Unzipping model...")
+        with zipfile.ZipFile(model_zip_path, "r") as zip_ref:
+            zip_ref.extractall(".")
+            extracted_folder = zip_ref.namelist()[0].split("/")[0]
+            os.rename(extracted_folder, model_dir)
+
+        os.remove(model_zip_path)
+        print("✅ Vosk model ready.")
+
+# Run model setup
+setup_vosk_model()
+
 app = Flask(__name__)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Load Vosk model (must be downloaded and placed in a 'model' folder)
+# Load Vosk model
 vosk_model = Model("model")
 
 def transcribe_vosk(mp3_file):
