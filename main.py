@@ -1,14 +1,15 @@
+
 from flask import Flask, request, render_template
-import requests, os
+import requests, os, tempfile
 import speech_recognition as sr
 from pydub import AudioSegment
+from vosk import Model
 
 app = Flask(__name__)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Load Vosk model once
-from vosk import Model
-vosk_model = Model(lang="en-us")
+# Load Vosk model (must be downloaded and placed in a 'model' folder)
+vosk_model = Model("model")
 
 def transcribe_vosk(mp3_file):
     recognizer = sr.Recognizer()
@@ -47,7 +48,12 @@ def index():
                     }
                 )
                 data = response.json()
-                summary = data["choices"][0]["message"]["content"].strip()
+                if "choices" in data:
+                    summary = data["choices"][0]["message"]["content"].strip()
+                elif "error" in data:
+                    error = f"Groq API Error: {data['error'].get('message', 'Unknown error')}"
+                else:
+                    error = "Unexpected response format."
             else:
                 error = "No valid text or voice input provided."
 
