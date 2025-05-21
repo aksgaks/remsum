@@ -1,24 +1,30 @@
 
 <!DOCTYPE html>
 <html>
-<head><title>Reminder Assistant</title></head>
+<head><title>Voice + Reminder Assistant</title></head>
 <body>
-  <h2>Set a Reminder</h2>
+  <h2>Transcribe, Summarize, and Set a Reminder</h2>
   <form method="POST" enctype="multipart/form-data">
     <label for="audio">Upload a voice note:</label><br>
     <input type="file" name="audio" accept=".mp3,.m4a,.wav,.ogg,.mp4"><br><br>
 
-    <label>Or type your reminder:</label><br>
-    <textarea name="note" rows="4" cols="60" placeholder="E.g., Submit bid by 30 May. Prepare docs by 28th."></textarea><br><br>
+    <label>Or type your note:</label><br>
+    <textarea name="note" rows="4" cols="60" placeholder="E.g., Submit bid by 30 May."></textarea><br><br>
 
     <label for="reminder_datetime">Reminder Date & Time:</label><br>
     <input type="datetime-local" name="reminder_datetime"><br><br>
 
-    <label><input type="checkbox" name="send_email"> Email me this reminder</label><br>
+    <label><input type="checkbox" name="summarize" checked> Summarize this input</label><br>
+    <label><input type="checkbox" name="send_email"> Email me the summary</label><br>
     <input type="email" name="email" placeholder="Enter your email"><br><br>
 
-    <button type="submit">Set Reminder</button>
+    <button type="submit">Process</button>
   </form>
+
+  {% if transcript %}
+    <h3>Transcript:</h3>
+    <div>{{ transcript }}</div>
+  {% endif %}
 
   {% if summary %}
     <h3>Summary:</h3>
