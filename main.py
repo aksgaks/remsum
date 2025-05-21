@@ -1,18 +1,40 @@
+# ✅ main.py (Groq + Whisper + MP3 Upload)
+
 from flask import Flask, request, render_template
-import requests
-import os
+import requests, os
 
 app = Flask(__name__)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+WHISPER_API_KEY = os.getenv("WHISPER_API_KEY")  # OpenAI key for transcription
+
+def transcribe_mp3(file):
+    headers = {
+        "Authorization": f"Bearer {WHISPER_API_KEY}"
+    }
+    files = {
+        'file': (file.filename, file.stream, 'audio/mpeg'),
+        'model': (None, 'whisper-1')
+    }
+    response = requests.post(
+        "https://api.openai.com/v1/audio/transcriptions",
+        headers=headers,
+        files=files
+    )
+    return response.json().get("text", "")
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     summary = ""
     error = ""
     if request.method == "POST":
-        note = request.form.get("note")
-        if note:
-            try:
+        note = request.form.get("note", "")
+        audio = request.files.get("audio")
+
+        try:
+            if audio and audio.filename.endswith(".mp3"):
+                note = transcribe_mp3(audio)
+
+            if note:
                 response = requests.post(
                     "https://api.groq.com/openai/v1/chat/completions",
                     headers={
@@ -27,10 +49,7 @@ def index():
                         ]
                     }
                 )
-
                 data = response.json()
-
-                # Check for errors in the response
                 if "choices" in data:
                     summary = data["choices"][0]["message"]["content"].strip()
                 elif "error" in data:
@@ -38,11 +57,10 @@ def index():
                 else:
                     error = "Unexpected response format."
 
-            except Exception as e:
-                error = f"❌ Exception: {e}"
+        except Exception as e:
+            error = f"❌ Error: {e}"
 
     return render_template("index.html", summary=summary, error=error)
-
 
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0")
