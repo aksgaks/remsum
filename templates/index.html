@@ -3,19 +3,23 @@
 <head><title>Reminder Tool</title></head>
 <body>
   <h2>Submit a Voice Note or Task</h2>
-  <form method="POST">
-    <textarea name="note" rows="8" cols="60" placeholder="E.g., Submit ABC bid on 22 May"></textarea><br>
+  <form method="POST" enctype="multipart/form-data">
+    <label for="audio">Upload MP3 Voice Note:</label><br>
+    <input type="file" name="audio" accept=".mp3"><br><br>
+
+    <label for="note">Or type your reminder note:</label><br>
+    <textarea name="note" rows="8" cols="60" placeholder="E.g., Submit bid by 30 May. Prepare docs by 28th."></textarea><br>
+
     <button type="submit">Summarize</button>
   </form>
+
   {% if summary %}
     <h3>Summary:</h3>
     <div>{{ summary }}</div>
   {% endif %}
-  {% if error %}
-  <div style="color: red; margin-top: 20px;">
-    <strong>Error:</strong> {{ error }}
-  </div>
-{% endif %}
 
+  {% if error %}
+    <div style="color:red; margin-top: 20px;"><strong>Error:</strong> {{ error }}</div>
+  {% endif %}
 </body>
 </html>
