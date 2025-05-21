@@ -30,6 +30,8 @@ def setup_vosk_model():
 setup_vosk_model()
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # Load Vosk model
