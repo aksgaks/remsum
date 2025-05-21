@@ -1,9 +1,8 @@
 
 from flask import Flask, request, render_template
-import requests, os, tempfile, zipfile
-import speech_recognition as sr
+import requests, os, tempfile, zipfile, wave, json
 from pydub import AudioSegment
-from vosk import Model
+from vosk import Model, KaldiRecognizer
 
 # ✅ Auto-download Vosk model if not already present
 def setup_vosk_model():
@@ -37,13 +36,25 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 vosk_model = Model("model")
 
 def transcribe_vosk(audio_file):
-    recognizer = sr.Recognizer()
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
         sound = AudioSegment.from_file(audio_file)
         sound.export(wav_file.name, format="wav")
-        with sr.AudioFile(wav_file.name) as source:
-            audio = recognizer.record(source)
-            return recognizer.recognize_vosk(audio, model=vosk_model)
+
+    wf = wave.open(wav_file.name, "rb")
+    rec = KaldiRecognizer(vosk_model, wf.getframerate())
+
+    transcript = ""
+    while True:
+        data = wf.readframes(4000)
+        if len(data) == 0:
+            break
+        if rec.AcceptWaveform(data):
+            result = json.loads(rec.Result())
+            transcript += result.get("text", "") + " "
+
+    final_result = json.loads(rec.FinalResult())
+    transcript += final_result.get("text", "")
+    return transcript.strip()
 
 @app.route("/", methods=["GET", "POST"])
 def index():
