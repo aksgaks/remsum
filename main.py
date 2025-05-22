@@ -7,6 +7,9 @@ import requests, smtplib
 from email.mime.text import MIMEText
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Auto-download Vosk model
 def setup_vosk_model():
@@ -76,6 +79,13 @@ def create_calendar_event(summary, dt):
         'description': summary,
         'start': {'dateTime': dt.isoformat(), 'timeZone': 'Asia/Kolkata'},
         'end': {'dateTime': (dt + datetime.timedelta(hours=1)).isoformat(), 'timeZone': 'Asia/Kolkata'},
+        'reminders': {
+            'useDefault': False,
+            'overrides': [
+                {'method': 'email', 'minutes': 1440},
+                {'method': 'popup', 'minutes': 10}
+            ]
+        }
     }
     service.events().insert(calendarId='primary', body=event).execute()
 
