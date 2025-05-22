@@ -66,8 +66,9 @@ def send_email(to_email, content):
         server.send_message(msg)
 
 def create_calendar_event(summary, dt):
-    credentials = service_account.Credentials.from_service_account_file(
-        "credentials.json", scopes=["https://www.googleapis.com/auth/calendar"]
+    creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
+    credentials = service_account.Credentials.from_service_account_info(
+        creds_dict, scopes=["https://www.googleapis.com/auth/calendar"]
     )
     service = build("calendar", "v3", credentials=credentials)
     event = {
@@ -112,7 +113,7 @@ def index():
                     data = res.json()
                     summary = data["choices"][0]["message"]["content"].strip()
                 else:
-                    summary = note  # no summarization requested
+                    summary = note
 
                 if send_email_flag and user_email:
                     send_email(user_email, summary)
